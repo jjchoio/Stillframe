@@ -89,12 +89,7 @@ final class AppModel {
     private func loadMetadata(for item: VideoItem) {
         Task { [weak item] in
             guard let item else { return }
-
-            // Dropped URLs carry an implicit sandbox extension, so this often returns false
-            // and that's fine. It matters for URLs that came from a picker or a bookmark.
-            let scoped = item.url.startAccessingSecurityScopedResource()
-            defer { if scoped { item.url.stopAccessingSecurityScopedResource() } }
-
+            // The security-scoped claim is held by VideoItem for its whole lifetime.
             do {
                 item.state = .ready(try await VideoMetadata.load(url: item.url))
             } catch {

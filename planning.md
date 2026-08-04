@@ -43,7 +43,7 @@ Re-checked at every gate, in addition to the phase's own list:
 |---|---|---|---|
 | 0 | Documentation | done | — |
 | 1 | Shell — drop, queue, metadata | done | ☑ verified |
-| 2 | Preview — player + geometry | todo | ☐ |
+| 2 | Preview — player + geometry | done | ☑ verified |
 | 3 | Export core — first working export | todo | ☐ |
 | 4 | Interval UI | todo | ☐ |
 | 5 | Crop | todo | ☐ |
@@ -166,7 +166,8 @@ Get videos into the app and displayed.
    sits exactly on the video's edges (no gap, no overhang) for **both** `test_landscape.mp4` and
    `test_portrait.mp4`, and stays aligned while the window is resized ← everything in milestone 5
    is built on this
-4. [ ] The debug stroke is removed before the phase is marked verified
+4. [ ] The debug stroke lives behind **Debug ▸ Show Video Bounds (⇧⌘B)**, is off by default, and
+   is compiled out of release builds — delete the `#if DEBUG` blocks once criterion 3 passes
 
 ---
 

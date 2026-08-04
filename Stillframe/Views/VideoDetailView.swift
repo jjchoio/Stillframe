@@ -5,61 +5,66 @@
 
 import SwiftUI
 
-/// Detail pane for the selected video.
+/// Detail pane for the selected video: preview on top, file facts underneath.
 ///
-/// Milestone 1 shows metadata only — the player preview and the crop overlay land in
-/// milestones 2 and 5.
+/// Crop and trim controls join this pane in milestones 5 and 6.
 struct VideoDetailView: View {
     let item: VideoItem
+    let player: PlayerController
 
     var body: some View {
         VStack(spacing: 0) {
-            Rectangle()
-                .fill(.quaternary)
-                .overlay {
-                    VStack(spacing: 10) {
-                        Image(systemName: "play.rectangle")
-                            .font(.system(size: 40, weight: .light))
-                        Text("Preview arrives in milestone 2")
-                            .font(.callout)
-                    }
-                    .foregroundStyle(.secondary)
-                }
+            VideoPreviewView(item: item, player: player)
 
             Divider()
-
-            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 7) {
-                row("File", item.displayName)
-
-                switch item.state {
-                case .loading:
-                    row("Status", "Loading…")
-
-                case .ready(let metadata):
-                    row("Duration", metadata.durationText)
-                    row("Resolution", metadata.resolutionText)
-                    row("Frame rate", metadata.frameRateText)
-
-                case .failed(let message):
-                    row("Status", message, tint: .orange)
-                }
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            infoBar
         }
         .navigationTitle(item.displayName)
+        .navigationSubtitle(item.metadata.map { "\($0.durationText) · \($0.resolutionText)" } ?? "")
     }
 
-    private func row(_ label: String, _ value: String, tint: Color? = nil) -> some View {
-        GridRow {
-            Text(label)
-                .foregroundStyle(.secondary)
-                .gridColumnAlignment(.trailing)
-            Text(value)
-                .foregroundStyle(tint ?? .primary)
-                .textSelection(.enabled)
-                .monospacedDigit()
+    private var infoBar: some View {
+        HStack(spacing: 0) {
+            fact("File", item.displayName)
+
+            switch item.state {
+            case .loading:
+                Divider().frame(height: 26)
+                fact("Status", "Loading…")
+
+            case .ready(let metadata):
+                Divider().frame(height: 26)
+                fact("Duration", metadata.durationText)
+                Divider().frame(height: 26)
+                fact("Resolution", metadata.resolutionText)
+                Divider().frame(height: 26)
+                fact("Frame rate", metadata.frameRateText)
+
+            case .failed(let message):
+                Divider().frame(height: 26)
+                fact("Status", message, tint: .orange)
+            }
+
+            Spacer(minLength: 0)
         }
-        .font(.callout)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private func fact(_ label: String, _ value: String, tint: Color? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            Text(value)
+                .font(.callout)
+                .foregroundStyle(tint ?? .primary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+        }
+        .padding(.horizontal, 12)
     }
 }
