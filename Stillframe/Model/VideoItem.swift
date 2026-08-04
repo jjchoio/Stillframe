@@ -31,6 +31,54 @@ final class VideoItem: Identifiable {
     /// Aspect constraint applied while dragging. Per-video for the same reason.
     var aspectLock: AspectLock = .free
 
+    /// Start of the range to sample, in seconds.
+    var trimStart: Double = 0
+
+    /// End of the range, or nil meaning "to the end of the video".
+    ///
+    /// Stored as an override rather than eagerly set to the duration, so an item created before
+    /// its metadata arrives doesn't get pinned to a bogus end of 0.
+    var trimEndOverride: Double?
+
+    var durationSeconds: Double { metadata?.seconds ?? 0 }
+
+    /// End of the range to sample, always within the video.
+    var trimEnd: Double {
+        get { min(trimEndOverride ?? durationSeconds, durationSeconds) }
+        set { trimEndOverride = newValue }
+    }
+
+    var trimDuration: Double { max(0, trimEnd - trimStart) }
+
+    var isTrimmed: Bool {
+        trimStart > 0.001 || trimEnd < durationSeconds - 0.001
+    }
+
+    func resetTrim() {
+        trimStart = 0
+        trimEndOverride = nil
+    }
+
+    /// Moves the start handle, keeping it inside the clip and at least `minimumSpan` before the
+    /// end handle. Lives here rather than in the drag gesture so the rule is one definition and
+    /// can be tested without driving the UI.
+    /// - Returns: the value actually applied, for seeking the preview.
+    @discardableResult
+    func setTrimStart(_ seconds: Double, minimumSpan: Double) -> Double {
+        let upperBound = max(trimEnd - minimumSpan, 0)
+        trimStart = min(max(seconds, 0), upperBound)
+        return trimStart
+    }
+
+    /// Moves the end handle, keeping it inside the clip and at least `minimumSpan` after the
+    /// start handle.
+    @discardableResult
+    func setTrimEnd(_ seconds: Double, minimumSpan: Double) -> Double {
+        let lowerBound = min(trimStart + minimumSpan, durationSeconds)
+        trimEnd = min(max(seconds, lowerBound), durationSeconds)
+        return trimEnd
+    }
+
     var isCropEnabled: Bool { cropRect != nil }
 
     /// The crop in source pixels — what the export will actually cut.

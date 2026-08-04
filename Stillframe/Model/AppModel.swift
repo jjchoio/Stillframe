@@ -109,10 +109,11 @@ final class AppModel {
     /// Frames the selected video will produce with the current settings.
     /// Reads the same helper the exporter uses, so the estimate can't disagree with the result.
     var plannedFrameCount: Int {
-        guard let metadata = selectedItem?.metadata, let interval = settings.interval else {
-            return 0
-        }
-        return FrameExporter.frameCount(start: 0, end: metadata.seconds, interval: interval)
+        guard let item = selectedItem, item.metadata != nil, let interval = settings.interval
+        else { return 0 }
+        // Trim boundaries, not the whole clip — the estimate must reflect what Start will do.
+        return FrameExporter.frameCount(
+            start: item.trimStart, end: item.trimEnd, interval: interval)
     }
 
     var canStartExport: Bool {
@@ -121,7 +122,7 @@ final class AppModel {
 
     /// Exports the selected video. Milestone 7 turns this into a queue.
     func startExport() {
-        guard let item = selectedItem, let metadata = item.metadata,
+        guard let item = selectedItem, item.metadata != nil,
               let interval = settings.interval
         else { return }
 
@@ -138,8 +139,8 @@ final class AppModel {
         let request = FrameExporter.Request(
             url: item.url,
             baseName: item.baseName,
-            start: 0,
-            end: metadata.seconds,
+            start: item.trimStart,
+            end: item.trimEnd,
             interval: interval,
             cropRect: item.cropRect,
             format: settings.format,
@@ -147,7 +148,7 @@ final class AppModel {
             destination: destination)
 
         exportStatus = .running(done: 0, total: FrameExporter.frameCount(
-            start: 0, end: metadata.seconds, interval: interval))
+            start: item.trimStart, end: item.trimEnd, interval: interval))
 
         exportTask = Task { [weak self] in
             let exporter = FrameExporter()

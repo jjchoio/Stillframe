@@ -11,10 +11,11 @@ import SwiftUI
 struct VideoDetailView: View {
     let item: VideoItem
     let player: PlayerController
+    let minimumTrimSpan: Double
 
     var body: some View {
         VStack(spacing: 0) {
-            VideoPreviewView(item: item, player: player)
+            VideoPreviewView(item: item, player: player, minimumTrimSpan: minimumTrimSpan)
 
             Divider()
             CropControlsView(item: item)

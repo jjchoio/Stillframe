@@ -26,7 +26,10 @@ struct ContentView: View {
                 } detail: {
                     VStack(spacing: 0) {
                         if let item = model.selectedItem {
-                            VideoDetailView(item: item, player: player)
+                            VideoDetailView(
+                                item: item,
+                                player: player,
+                                minimumTrimSpan: model.settings.interval ?? 0.5)
                         } else {
                             ContentUnavailableView(
                                 "No Video Selected",

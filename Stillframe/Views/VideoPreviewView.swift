@@ -15,6 +15,9 @@ import SwiftUI
 struct VideoPreviewView: View {
     let item: VideoItem
     let player: PlayerController
+    /// One sampling interval — the closest the trim handles may approach each other, so a
+    /// trimmed range always yields at least one frame.
+    let minimumTrimSpan: Double
 
     var body: some View {
         VStack(spacing: 0) {
@@ -110,17 +113,10 @@ struct VideoPreviewView: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
 
-            Slider(
-                value: Binding(
-                    get: { player.currentTime },
-                    set: { player.seek(to: $0) }),
-                in: 0...max(player.duration, 0.01))
-            .disabled(item.metadata == nil)
+            TrimRangeSlider(item: item, player: player, minimumSpan: minimumTrimSpan)
+                .disabled(item.metadata == nil)
 
-            Text(player.duration.playbackTimeText)
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            trimReadout
 
             Button(action: player.toggleMute) {
                 Image(systemName: player.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
@@ -134,6 +130,35 @@ struct VideoPreviewView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
+        .frame(height: 42)
         .background(.bar)
+    }
+
+    /// Shows the trimmed range in place of the duration once it's been narrowed, with a way
+    /// back to the whole clip.
+    @ViewBuilder
+    private var trimReadout: some View {
+        if item.isTrimmed {
+            HStack(spacing: 4) {
+                Text("\(item.trimStart.trimTimeText)–\(item.trimEnd.trimTimeText)")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(Color.accentColor)
+
+                Button {
+                    item.resetTrim()
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                }
+                .buttonStyle(.borderless)
+                .help("Use the whole video")
+            }
+            .fixedSize()
+        } else {
+            Text(player.duration.playbackTimeText)
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
     }
 }

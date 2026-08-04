@@ -133,6 +133,12 @@ final class PlayerController {
 // MARK: - Formatting
 
 extension Double {
+    /// `3.0` → `"3.0s"`, for the trim range readout.
+    var trimTimeText: String {
+        guard isFinite else { return "0.0s" }
+        return String(format: "%.1fs", self)
+    }
+
     /// `12.4` → `"0:12.4"`, for transport readouts.
     var playbackTimeText: String {
         guard isFinite, self >= 0 else { return "0:00.0" }
