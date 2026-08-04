@@ -21,6 +21,9 @@ final class VideoItem: Identifiable {
     let url: URL
     var state: LoadState = .loading
 
+    /// Where this video stands in the current export run.
+    var exportStatus: ExportStatus = .pending
+
     /// The crop region, **normalized 0…1 with a top-left origin, in display space**.
     /// `nil` means export the full frame.
     ///

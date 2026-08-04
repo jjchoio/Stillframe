@@ -16,21 +16,21 @@ final class AppModel {
     let settings = ExportSettings()
     let outputFolder = OutputFolderStore()
 
-    /// Where the current (or last) export stands. Milestone 7 makes this per-item for batches.
-    private(set) var exportStatus: ExportStatus = .idle
+    private(set) var isExporting = false
+
+    /// Result of the last completed run, for the summary and Reveal in Finder.
+    private(set) var lastRun: RunSummary?
+
+    /// Set when a run couldn't start at all (no output folder, folder gone).
+    private(set) var startupError: String?
 
     @ObservationIgnored private var exportTask: Task<Void, Never>?
 
-    enum ExportStatus {
-        case idle
-        case running(done: Int, total: Int)
-        case finished(count: Int, folder: URL)
-        case failed(String)
-
-        var isRunning: Bool {
-            if case .running = self { return true }
-            return false
-        }
+    struct RunSummary {
+        var imageCount: Int
+        var folders: [URL]
+        var failedCount: Int
+        var wasCancelled: Bool
     }
 
     var selectedItem: VideoItem? {
@@ -106,65 +106,151 @@ final class AppModel {
 
     // MARK: - Export
 
-    /// Frames the selected video will produce with the current settings.
+    /// Frames `item` will produce with the current settings.
     /// Reads the same helper the exporter uses, so the estimate can't disagree with the result.
-    var plannedFrameCount: Int {
-        guard let item = selectedItem, item.metadata != nil, let interval = settings.interval
-        else { return 0 }
+    func plannedFrameCount(for item: VideoItem) -> Int {
+        guard item.metadata != nil, let interval = settings.interval else { return 0 }
         // Trim boundaries, not the whole clip — the estimate must reflect what Start will do.
         return FrameExporter.frameCount(
             start: item.trimStart, end: item.trimEnd, interval: interval)
     }
 
-    var canStartExport: Bool {
-        selectedItem?.metadata != nil && settings.isIntervalValid && !exportStatus.isRunning
+    var plannedFrameCount: Int {
+        guard let selectedItem else { return 0 }
+        return plannedFrameCount(for: selectedItem)
     }
 
-    /// Exports the selected video. Milestone 7 turns this into a queue.
+    /// Frames the whole queue will produce.
+    var queuedFrameCount: Int {
+        items.reduce(0) { $0 + plannedFrameCount(for: $1) }
+    }
+
+    var completedFrameCount: Int {
+        items.reduce(0) { $0 + $1.exportStatus.completedCount }
+    }
+
+    var exportableItems: [VideoItem] {
+        items.filter { $0.metadata != nil }
+    }
+
+    var canStartExport: Bool {
+        !exportableItems.isEmpty && settings.isIntervalValid && !isExporting
+    }
+
+    // MARK: Running the queue
+
+    /// Exports every video in the queue, one after another.
+    ///
+    /// Sequential on purpose: `images(for:)` already parallelizes internally, so running clips
+    /// concurrently would compete for the same decoders while making progress illegible and
+    /// memory use spiky.
     func startExport() {
-        guard let item = selectedItem, item.metadata != nil,
-              let interval = settings.interval
-        else { return }
+        guard !isExporting, settings.isIntervalValid else { return }
+
+        startupError = nil
+        lastRun = nil
 
         // Prompt rather than fail when there's nowhere to write yet.
         if outputFolder.folder == nil, outputFolder.choose() == nil { return }
         guard let destination = outputFolder.folder else { return }
 
         guard outputFolder.isWritable else {
-            exportStatus = .failed(
-                "Can't write to \(destination.lastPathComponent). Choose the folder again.")
+            startupError = "Can't write to \(destination.lastPathComponent). Choose it again."
             return
         }
 
-        let request = FrameExporter.Request(
-            url: item.url,
-            baseName: item.baseName,
-            start: item.trimStart,
-            end: item.trimEnd,
-            interval: interval,
-            cropRect: item.cropRect,
-            format: settings.format,
-            quality: settings.jpegQuality,
-            destination: destination)
-
-        exportStatus = .running(done: 0, total: FrameExporter.frameCount(
-            start: item.trimStart, end: item.trimEnd, interval: interval))
+        for item in items { item.exportStatus = .pending }
+        isExporting = true
 
         exportTask = Task { [weak self] in
-            let exporter = FrameExporter()
-            do {
-                let outcome = try await exporter.export(request) { done, total in
-                    self?.exportStatus = .running(done: done, total: total)
-                }
-                self?.exportStatus = .finished(count: outcome.written, folder: outcome.folder)
-            } catch {
-                self?.exportStatus = .failed(error.localizedDescription)
-            }
+            await self?.runQueue(destination: destination)
         }
     }
 
-    func clearExportStatus() {
-        exportStatus = .idle
+    private func runQueue(destination: URL) async {
+        let exporter = FrameExporter()
+        var summary = RunSummary(imageCount: 0, folders: [], failedCount: 0, wasCancelled: false)
+
+        // Taking the next pending item each pass rather than iterating a snapshot means a video
+        // dropped mid-run joins the same run instead of sitting there looking queued.
+        while let item = items.first(where: { $0.exportStatus.isPending }) {
+            if Task.isCancelled { break }
+
+            guard item.metadata != nil, let interval = settings.interval else {
+                item.exportStatus = .failed(item.failureMessage ?? "Couldn't read this video.")
+                summary.failedCount += 1
+                continue
+            }
+
+            let total = plannedFrameCount(for: item)
+            guard total > 0 else {
+                item.exportStatus = .failed("This interval produces no frames for this video.")
+                summary.failedCount += 1
+                continue
+            }
+
+            item.exportStatus = .exporting(done: 0, total: total)
+
+            let request = FrameExporter.Request(
+                url: item.url,
+                baseName: item.baseName,
+                start: item.trimStart,
+                end: item.trimEnd,
+                interval: interval,
+                cropRect: item.cropRect,
+                format: settings.format,
+                quality: settings.jpegQuality,
+                destination: destination)
+
+            do {
+                let outcome = try await exporter.export(request) { done, total in
+                    item.exportStatus = .exporting(done: done, total: total)
+                }
+
+                if outcome.wasCancelled {
+                    item.exportStatus = .cancelled(partial: outcome.written)
+                    summary.imageCount += outcome.written
+                    summary.wasCancelled = true
+                    break
+                }
+
+                item.exportStatus = .finished(count: outcome.written, folder: outcome.folder)
+                summary.imageCount += outcome.written
+                summary.folders.append(outcome.folder)
+            } catch is CancellationError {
+                item.exportStatus = .cancelled(partial: 0)
+                summary.wasCancelled = true
+                break
+            } catch {
+                // One bad video must not take the rest of the queue down with it.
+                item.exportStatus = .failed(error.localizedDescription)
+                summary.failedCount += 1
+            }
+        }
+
+        if Task.isCancelled { summary.wasCancelled = true }
+        lastRun = summary
+        isExporting = false
+        exportTask = nil
+    }
+
+    /// Stops between frames. Everything already written stays on disk.
+    func cancelExport() {
+        exportTask?.cancel()
+    }
+
+    /// Clears the queue and returns to the drop zone.
+    func startOver() {
+        items.removeAll()
+        selection = nil
+        lastRun = nil
+        startupError = nil
+    }
+
+    /// Every folder this run produced, for Reveal in Finder.
+    var revealTargets: [URL] {
+        let folders = items.compactMap { $0.exportStatus.folder }
+        return folders.isEmpty ? (outputFolder.folder.map { [$0] } ?? []) : folders
     }
 
     // MARK: - Loading

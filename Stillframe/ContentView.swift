@@ -41,8 +41,6 @@ struct ContentView: View {
                         SettingsBarView(model: model)
                     }
                 }
-                // A new selection shouldn't keep showing the previous export's result.
-                .onChange(of: model.selection) { model.clearExportStatus() }
                 // A thin accent border is enough feedback once the queue is populated —
                 // the drop zone itself is no longer on screen to light up.
                 .overlay {

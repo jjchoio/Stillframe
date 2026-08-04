@@ -79,17 +79,42 @@ subfolders like `Model/` or `Services/` — is added to the target automatically
 ```
 Stillframe/
   Model/      state and settings — no AVFoundation work, no view code
-  Services/   the actual media work — no SwiftUI imports
+  Services/   the actual media work and pure geometry — no SwiftUI imports
   Views/      presentation — no CGImage manipulation, no file I/O
 ```
 
-- **`Model/`** — `VideoItem` (one dropped video: URL, metadata, crop, trim, status),
-  `ExportSettings` (global interval / format / quality / output folder),
+- **`Model/`** — `VideoItem` (one dropped video: URL, metadata, crop, trim, export status),
+  `ExportStatus`, `ExportSettings` (global interval / format / quality),
   `AppModel` (queue, selection, export orchestration). Plain state; delegates work to services.
-- **`Services/`** — `VideoMetadata`, `FrameExporter`, `ImageWriter`, `OutputFolderStore`.
-  Testable in isolation, no view dependencies.
+- **`Services/`** — `VideoMetadata`, `PlayerController`, `CropGeometry`, `FrameExporter`,
+  `ImageWriter`, `OutputFolderStore`. No view dependencies, so each is exercisable from a
+  standalone `swiftc` harness — which is how every milestone was verified.
 - **`Views/`** — SwiftUI views plus `PlayerLayerView`, the one `NSViewRepresentable`.
   Views read model state and call into `AppModel`; they never touch pixels or the filesystem.
+
+**Rules that state belongs to the model, not a gesture.** Crop clamping lives in `CropGeometry`,
+trim clamping in `VideoItem.setTrimStart`/`setTrimEnd`. Logic buried in a `DragGesture` closure
+can only be checked by hand.
+
+## Verifying a change
+
+There's no test target. Each service is dependency-free enough to compile standalone against the
+generated clips in `TestAssets/` (run `swift Tools/MakeTestAssets.swift` to create them):
+
+```bash
+swiftc -parse-as-library -o check check.swift \
+  Stillframe/Services/FrameExporter.swift Stillframe/Services/ImageWriter.swift \
+  Stillframe/Model/ExportSettings.swift
+```
+
+Two habits worth keeping, both learned the hard way here:
+
+- **Don't hardcode expected pixel values across encoders.** Absolute levels shift through H.264
+  and between JPEG and PNG. Compare frames to each other, or to a reference export in the same
+  format, rather than to constants.
+- **Make sure the work outlasts the assertion.** A cancellation test "passed" while reporting
+  240/240 frames, because the export finished before the cancel fired. Size the job so the thing
+  under test is actually in flight.
 
 ---
 

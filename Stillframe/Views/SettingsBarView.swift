@@ -167,55 +167,98 @@ struct SettingsBarView: View {
         }
     }
 
+    @ViewBuilder
     private var startButton: some View {
-        Button(action: model.startExport) {
-            Text("Start")
-                .frame(minWidth: 54)
+        if model.isExporting {
+            Button(role: .cancel) {
+                model.cancelExport()
+            } label: {
+                Text("Cancel").frame(minWidth: 54)
+            }
+            .keyboardShortcut(".", modifiers: .command)
+        } else {
+            Button(action: model.startExport) {
+                Text(startTitle).frame(minWidth: 54)
+            }
+            .keyboardShortcut(.return, modifiers: .command)
+            .buttonStyle(.borderedProminent)
+            .disabled(!model.canStartExport)
         }
-        .keyboardShortcut(.return, modifiers: .command)
-        .buttonStyle(.borderedProminent)
-        .disabled(!model.canStartExport)
+    }
+
+    private var startTitle: String {
+        let count = model.exportableItems.count
+        return count > 1 ? "Start All (\(count))" : "Start"
     }
 
     // MARK: - Status
 
     @ViewBuilder
     private var status: some View {
-        switch model.exportStatus {
-        case .idle:
-            estimate
-
-        case .running(let done, let total):
-            HStack(spacing: 8) {
-                ProgressView(value: Double(done), total: Double(max(total, 1)))
-                    .progressViewStyle(.linear)
-                    .frame(width: 130)
-                Text("\(done)/\(total)")
-                    .font(.callout)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            }
-
-        case .finished(let count, let folder):
-            HStack(spacing: 8) {
-                Label("^[\(count) image](inflect: true)", systemImage: "checkmark.circle.fill")
-                    .font(.callout)
-                    .foregroundStyle(.green)
-                Button("Reveal in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([folder])
-                }
-                .buttonStyle(.link)
-            }
-
-        case .failed(let message):
+        if model.isExporting {
+            progress
+        } else if let error = model.startupError {
             // One line, with the full text in the tooltip — a long error must not grow the bar.
-            Label(message, systemImage: "exclamationmark.triangle.fill")
+            Label(error, systemImage: "exclamationmark.triangle.fill")
                 .font(.callout)
                 .foregroundStyle(.orange)
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .help(message)
+                .help(error)
+        } else if let run = model.lastRun {
+            summary(run)
+        } else {
+            estimate
         }
+    }
+
+    /// Overall progress across the whole queue, not just the video being worked on.
+    private var progress: some View {
+        let done = model.completedFrameCount
+        let total = max(model.queuedFrameCount, 1)
+        return HStack(spacing: 8) {
+            ProgressView(value: Double(min(done, total)), total: Double(total))
+                .progressViewStyle(.linear)
+                .frame(width: 130)
+            Text("\(done)/\(total)")
+                .font(.callout)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func summary(_ run: AppModel.RunSummary) -> some View {
+        HStack(spacing: 8) {
+            Label(summaryText(run), systemImage: summaryIcon(run))
+                .font(.callout)
+                .foregroundStyle(run.wasCancelled || run.failedCount > 0 ? .orange : .green)
+                .lineLimit(1)
+                .help(summaryText(run))
+
+            if !model.revealTargets.isEmpty {
+                Button("Reveal in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting(model.revealTargets)
+                }
+                .buttonStyle(.link)
+            }
+
+            Button("Export Another") { model.startOver() }
+                .buttonStyle(.link)
+        }
+    }
+
+    private func summaryIcon(_ run: AppModel.RunSummary) -> String {
+        if run.wasCancelled { return "stop.circle.fill" }
+        return run.failedCount > 0 ? "exclamationmark.circle.fill" : "checkmark.circle.fill"
+    }
+
+    private func summaryText(_ run: AppModel.RunSummary) -> String {
+        var text = run.wasCancelled
+            ? "Cancelled — \(run.imageCount) written"
+            : "\(run.imageCount) images"
+        if run.folders.count > 1 { text += " in \(run.folders.count) folders" }
+        if run.failedCount > 0 { text += " · \(run.failedCount) failed" }
+        return text
     }
 
     /// The promise the export has to keep — same helper the exporter counts with.

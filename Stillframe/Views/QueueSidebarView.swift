@@ -67,10 +67,16 @@ private struct QueueRow: View {
                     .foregroundStyle(.secondary)
 
             case .ready(let metadata):
-                Text("\(metadata.durationText) · \(metadata.resolutionText)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                // Export state takes over the subtitle once a run starts, since that's the
+                // thing you're watching; the file's facts are still in the detail pane.
+                if case .pending = item.exportStatus {
+                    Text("\(metadata.durationText) · \(metadata.resolutionText)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                } else {
+                    exportStatusLine
+                }
 
             case .failed(let message):
                 Label(message, systemImage: "exclamationmark.triangle.fill")
@@ -80,5 +86,41 @@ private struct QueueRow: View {
             }
         }
         .padding(.vertical, 3)
+    }
+
+    @ViewBuilder
+    private var exportStatusLine: some View {
+        switch item.exportStatus {
+        case .exporting(let done, let total):
+            HStack(spacing: 6) {
+                ProgressView(value: Double(done), total: Double(max(total, 1)))
+                    .progressViewStyle(.linear)
+                Text("\(done)/\(total)")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+            }
+
+        case .finished(let count, _):
+            Label("^[\(count) image](inflect: true)", systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
+
+        case .cancelled(let partial):
+            Label("Cancelled at \(partial)", systemImage: "stop.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .lineLimit(2)
+                .help(message)
+
+        case .pending:
+            EmptyView()
+        }
     }
 }

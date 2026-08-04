@@ -5,8 +5,8 @@
 A small macOS app that turns videos into a set of still images. Drop a video in, say "one image
 every half second," and get a folder of numbered JPGs or PNGs — no video editor, no command line.
 
-> **Status:** in development. The app doesn't do anything useful yet — see
-> [`planning.md`](planning.md) for the build order and current progress.
+> **Status:** v1 feature-complete. Every item in the list below works end to end.
+> See [`planning.md`](planning.md) for how it was built and what's verified.
 
 ---
 

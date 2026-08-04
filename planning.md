@@ -47,8 +47,8 @@ Re-checked at every gate, in addition to the phase's own list:
 | 3 | Export core — first working export | done | ☑ verified |
 | 4 | Interval UI | done | ☑ verified |
 | 5 | Crop | done | ☑ verified |
-| 6 | Trim | done | ☐ awaiting |
-| 7 | Batch & lifecycle | todo | ☐ |
+| 6 | Trim | done | ☑ verified |
+| 7 | Batch & lifecycle | done | ☑ verified |
 
 ---
 
@@ -78,28 +78,36 @@ without instrumentation.
 CLAUDE.md
 product.md
 planning.md
+README.md
+Tools/MakeTestAssets.swift    — generates the deterministic test clips
+TestAssets/                   — generated, gitignored
 Stillframe.xcodeproj/
 Stillframe/
   StillframeApp.swift
   ContentView.swift
   Stillframe.entitlements
   Model/
-    VideoItem.swift          — one dropped video: url, metadata, crop, trim, status
-    ExportSettings.swift     — global interval / format / quality / output folder
+    VideoItem.swift          — one video: url, metadata, crop, trim, export status
+    ExportStatus.swift       — where a video stands in a run
+    ExportSettings.swift     — global interval / format / quality
     AppModel.swift           — queue, selection, export orchestration
   Services/
-    VideoMetadata.swift      — async duration + rotation-corrected size
-    FrameExporter.swift      — actor; AVAssetImageGenerator → cropped CGImages
-    ImageWriter.swift        — CGImage → JPG/PNG on disk
+    VideoMetadata.swift      — async duration + rotation-corrected display size
+    PlayerController.swift   — the single AVPlayer driving preview playback
+    CropGeometry.swift       — normalized <-> screen <-> pixel conversions
+    FrameExporter.swift      — actor; AVAssetImageGenerator -> cropped CGImages
+    ImageWriter.swift        — CGImage -> JPG/PNG on disk
     OutputFolderStore.swift  — NSOpenPanel + security-scoped bookmark
   Views/
     DropZoneView.swift
     QueueSidebarView.swift
     VideoDetailView.swift
-    PlayerLayerView.swift
-    CropOverlayView.swift
-    TrimRangeSlider.swift
-    SettingsBarView.swift
+    VideoPreviewView.swift   — video rect geometry + transport bar
+    PlayerLayerView.swift    — AVPlayerLayer in NSViewRepresentable
+    CropOverlayView.swift    — draggable rectangle and handles
+    CropControlsView.swift   — crop toggle, aspect lock, pixel readout
+    TrimRangeSlider.swift    — playhead + two trim handles on one track
+    SettingsBarView.swift    — interval, format, quality, output, Start/Cancel
 ```
 
 `Stillframe/` is an Xcode 16 **file-system-synchronized group**, so new `.swift` files
@@ -344,9 +352,13 @@ generous hit area.
 
 ---
 
-## Final regression pass
+## Final regression pass — **not yet run**
 
-Run once after milestone 7 is verified — the whole product in one sitting, in Xcode:
+All seven milestones are individually verified, but the end-to-end pass below hasn't been done in
+one sitting. Worth doing before calling v1 shipped, since the milestones were verified as they
+landed and later ones could have disturbed earlier behaviour.
+
+Run the whole product in one sitting, in Xcode:
 
 1. **Build** — ⌘B, zero errors, zero warnings.
 2. **Core flow** — drop `test_landscape.mp4`, interval 0.5 s, estimate reads 20, export,
