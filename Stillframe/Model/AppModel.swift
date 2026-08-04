@@ -13,6 +13,26 @@ final class AppModel {
     private(set) var items: [VideoItem] = []
     var selection: VideoItem.ID?
 
+    let settings = ExportSettings()
+    let outputFolder = OutputFolderStore()
+
+    /// Where the current (or last) export stands. Milestone 7 makes this per-item for batches.
+    private(set) var exportStatus: ExportStatus = .idle
+
+    @ObservationIgnored private var exportTask: Task<Void, Never>?
+
+    enum ExportStatus {
+        case idle
+        case running(done: Int, total: Int)
+        case finished(count: Int, folder: URL)
+        case failed(String)
+
+        var isRunning: Bool {
+            if case .running = self { return true }
+            return false
+        }
+    }
+
     var selectedItem: VideoItem? {
         guard let selection else { return nil }
         return items.first { $0.id == selection }
@@ -82,6 +102,64 @@ final class AppModel {
     func removeSelected() {
         guard let selection else { return }
         remove(ids: [selection])
+    }
+
+    // MARK: - Export
+
+    /// Frames the selected video will produce with the current settings.
+    /// Reads the same helper the exporter uses, so the estimate can't disagree with the result.
+    var plannedFrameCount: Int {
+        guard let metadata = selectedItem?.metadata else { return 0 }
+        return FrameExporter.frameCount(
+            start: 0, end: metadata.seconds, interval: settings.interval)
+    }
+
+    var canStartExport: Bool {
+        selectedItem?.metadata != nil && !exportStatus.isRunning
+    }
+
+    /// Exports the selected video. Milestone 7 turns this into a queue.
+    func startExport() {
+        guard let item = selectedItem, let metadata = item.metadata else { return }
+
+        // Prompt rather than fail when there's nowhere to write yet.
+        if outputFolder.folder == nil, outputFolder.choose() == nil { return }
+        guard let destination = outputFolder.folder else { return }
+
+        guard outputFolder.isWritable else {
+            exportStatus = .failed(
+                "Can't write to \(destination.lastPathComponent). Choose the folder again.")
+            return
+        }
+
+        let request = FrameExporter.Request(
+            url: item.url,
+            baseName: item.baseName,
+            start: 0,
+            end: metadata.seconds,
+            interval: settings.interval,
+            format: settings.format,
+            quality: settings.jpegQuality,
+            destination: destination)
+
+        exportStatus = .running(done: 0, total: FrameExporter.frameCount(
+            start: 0, end: metadata.seconds, interval: settings.interval))
+
+        exportTask = Task { [weak self] in
+            let exporter = FrameExporter()
+            do {
+                let outcome = try await exporter.export(request) { done, total in
+                    self?.exportStatus = .running(done: done, total: total)
+                }
+                self?.exportStatus = .finished(count: outcome.written, folder: outcome.folder)
+            } catch {
+                self?.exportStatus = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    func clearExportStatus() {
+        exportStatus = .idle
     }
 
     // MARK: - Loading

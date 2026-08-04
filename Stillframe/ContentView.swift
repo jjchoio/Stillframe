@@ -24,16 +24,22 @@ struct ContentView: View {
                     QueueSidebarView(model: model) { isShowingImporter = true }
                         .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
                 } detail: {
-                    if let item = model.selectedItem {
-                        VideoDetailView(item: item, player: player)
-                    } else {
-                        ContentUnavailableView(
-                            "No Video Selected",
-                            systemImage: "sidebar.left",
-                            description: Text("Choose a video from the queue."))
-                            .onAppear { player.unload() }
+                    VStack(spacing: 0) {
+                        if let item = model.selectedItem {
+                            VideoDetailView(item: item, player: player)
+                        } else {
+                            ContentUnavailableView(
+                                "No Video Selected",
+                                systemImage: "sidebar.left",
+                                description: Text("Choose a video from the queue."))
+                                .onAppear { player.unload() }
+                        }
+
+                        SettingsBarView(model: model)
                     }
                 }
+                // A new selection shouldn't keep showing the previous export's result.
+                .onChange(of: model.selection) { model.clearExportStatus() }
                 // A thin accent border is enough feedback once the queue is populated —
                 // the drop zone itself is no longer on screen to light up.
                 .overlay {
