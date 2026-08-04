@@ -112,7 +112,9 @@ Explicitly out of scope for v1:
 - Resizing or downscaling on export
 - Contact sheets, GIFs, or any composite output
 - Per-video interval, format, or quality overrides
-- Video formats AVFoundation can't open natively (`.mkv` is rejected at the drop)
+- Video formats AVFoundation can't open natively. `.mkv`, `.avi` and `.webm` are rejected at the
+  drop — note they *do* conform to `public.movie`, so acceptance is an explicit allowlist of
+  `.mp4` / `.mov` / `.m4v` rather than a conformance check
 - Drag-reordering the queue
 - Editing, encoding, or writing video of any kind
 

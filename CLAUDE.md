@@ -159,7 +159,14 @@ premise of the app. Do not loosen tolerance to make exports faster.
 - Entitlement required: `com.apple.security.files.user-selected.read-write`.
 - **Test the relaunch path**, not just the same-session path — that's where bookmark bugs appear.
 
-### 5. Don't use SwiftUI's `VideoPlayer`
+### 5. `UTType.movie` is too permissive for the drop filter
+
+`.mkv`, `.avi` and `.webm` all conform to `public.movie`, but AVFoundation cannot open them.
+Filtering on `.movie` therefore lets files into the queue that fail the moment metadata loads.
+`AppModel.acceptedTypes` is an explicit allowlist — `.mpeg4Movie`, `.quickTimeMovie`,
+`com.apple.m4v-video` — and any new format must be added there deliberately.
+
+### 6. Don't use SwiftUI's `VideoPlayer`
 
 Use `PlayerLayerView` (`AVPlayerLayer`, `videoGravity = .resizeAspect`). `VideoPlayer`'s built-in
 transport controls swallow the crop drag gestures, and we need the exact letterboxed video rect,

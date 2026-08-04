@@ -42,7 +42,7 @@ Re-checked at every gate, in addition to the phase's own list:
 | # | Milestone | Built | Verified in Xcode (Joshua) |
 |---|---|---|---|
 | 0 | Documentation | done | — |
-| 1 | Shell — drop, queue, metadata | todo | ☐ |
+| 1 | Shell — drop, queue, metadata | done | ☑ verified |
 | 2 | Preview — player + geometry | todo | ☐ |
 | 3 | Export core — first working export | todo | ☐ |
 | 4 | Interval UI | todo | ☐ |
@@ -121,7 +121,10 @@ Get videos into the app and displayed.
 - Window: minimum size ~900×600, `.windowResizability(.contentMinSize)`.
 - `ContentView` = `NavigationSplitView` (sidebar ≈220 pt + detail). When the queue is empty, the
   whole window is `DropZoneView` instead.
-- `.dropDestination(for: URL.self)`, accepting only URLs whose `UTType` conforms to `.movie`.
+- `.dropDestination(for: URL.self)`, accepting only an **allowlist** of `UTType`s —
+  `.mpeg4Movie`, `.quickTimeMovie`, `com.apple.m4v-video`. Not `.movie`: `.mkv`, `.avi` and
+  `.webm` all conform to `public.movie` but AVFoundation can't open them, so a `.movie` check
+  admits files that then fail on load.
   Border highlight on `isTargeted`. Also an "Add Videos…" `.fileImporter` for non-drag users.
 - Call `startAccessingSecurityScopedResource()` defensively on each incoming URL.
 - `VideoMetadata.load(url:)` fills in duration, rotation-corrected display size, and frame rate.

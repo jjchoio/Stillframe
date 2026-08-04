@@ -2,8 +2,6 @@
 //  StillframeApp.swift
 //  Stillframe
 //
-//  Created by Joshua Choi on 8/4/26.
-//
 
 import SwiftUI
 
@@ -13,5 +11,9 @@ struct StillframeApp: App {
         WindowGroup {
             ContentView()
         }
+        .defaultSize(width: 1100, height: 720)
+        // .contentMinSize keeps the window from shrinking past ContentView's minimum,
+        // so the sidebar/detail split never collapses into an unusable width.
+        .windowResizability(.contentMinSize)
     }
 }
