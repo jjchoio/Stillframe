@@ -1,6 +1,6 @@
 //
-//  VideoExportAsImageApp.swift
-//  VideoExportAsImage
+//  StillframeApp.swift
+//  Stillframe
 //
 //  Created by Joshua Choi on 8/4/26.
 //
@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct VideoExportAsImageApp: App {
+struct StillframeApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

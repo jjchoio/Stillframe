@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  VideoExportAsImage
+//  Stillframe
 //
 //  Created by Joshua Choi on 8/4/26.
 //
