@@ -141,6 +141,7 @@ final class AppModel {
             start: 0,
             end: metadata.seconds,
             interval: interval,
+            cropRect: item.cropRect,
             format: settings.format,
             quality: settings.jpegQuality,
             destination: destination)

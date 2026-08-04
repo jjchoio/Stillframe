@@ -17,6 +17,9 @@ struct VideoDetailView: View {
             VideoPreviewView(item: item, player: player)
 
             Divider()
+            CropControlsView(item: item)
+
+            Divider()
             infoBar
         }
         .navigationTitle(item.displayName)

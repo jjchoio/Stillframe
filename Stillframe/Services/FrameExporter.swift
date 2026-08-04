@@ -33,6 +33,8 @@ actor FrameExporter {
         let start: Double
         let end: Double
         let interval: Double
+        /// Normalized 0…1, top-left origin, in display space. `nil` exports the full frame.
+        let cropRect: CGRect?
         let format: ImageFormat
         let quality: Double
         /// The user-chosen parent folder; a per-video subfolder is created inside it.
@@ -116,8 +118,13 @@ actor FrameExporter {
                 let index = Self.index(of: requestedTime, in: request) ?? written
                 let name = "\(request.baseName)_\(String(format: "%0\(padding)d", index + 1))"
                     + ".\(request.format.fileExtension)"
+
+                // The generated image is already display-oriented, so the normalized crop —
+                // which was drawn in display space — maps straight onto its pixels.
+                let output = Self.cropped(image, to: request.cropRect)
+
                 try ImageWriter.write(
-                    image,
+                    output,
                     to: folder.appendingPathComponent(name),
                     format: request.format,
                     quality: request.quality)
@@ -136,6 +143,22 @@ actor FrameExporter {
 
         return Outcome(
             folder: folder, written: written, requested: times.count, wasCancelled: wasCancelled)
+    }
+
+    /// Cuts `normalized` out of `image`, or returns it untouched when there's no crop.
+    ///
+    /// The rect is denormalized against the image's **actual pixel dimensions**, not the
+    /// metadata's — they agree, but reading them from the image itself removes any chance of a
+    /// mismatch cropping the wrong region.
+    static func cropped(_ image: CGImage, to normalized: CGRect?) -> CGImage {
+        guard let normalized, !CropGeometry.isFullFrame(normalized) else { return image }
+
+        let pixelSize = CGSize(width: image.width, height: image.height)
+        let rect = CropGeometry.pixelRect(normalized: normalized, pixelSize: pixelSize)
+        guard rect.width >= 1, rect.height >= 1 else { return image }
+
+        // Fails only if the rect escapes the image, which pixelRect already prevents.
+        return image.cropping(to: rect) ?? image
     }
 
     /// Recovers a frame's ordinal from its requested time, so numbering follows the timeline

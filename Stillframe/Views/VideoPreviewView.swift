@@ -29,6 +29,12 @@ struct VideoPreviewView: View {
                         PlayerLayerView(player: player.player)
                             .frame(width: rect.width, height: rect.height)
                             .offset(x: rect.minX, y: rect.minY)
+
+                        // Same rect, same GeometryReader — the selection and the frame it
+                        // selects are positioned from one source.
+                        if item.isCropEnabled {
+                            CropOverlayView(item: item, videoRect: rect)
+                        }
                     } else {
                         placeholder
                             .frame(width: container.width, height: container.height)
