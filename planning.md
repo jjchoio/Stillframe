@@ -45,7 +45,7 @@ Re-checked at every gate, in addition to the phase's own list:
 | 1 | Shell — drop, queue, metadata | done | ☑ verified |
 | 2 | Preview — player + geometry | done | ☑ verified |
 | 3 | Export core — first working export | done | ☑ verified |
-| 4 | Interval UI | todo | ☐ |
+| 4 | Interval UI | done | ☑ verified |
 | 5 | Crop | todo | ☐ |
 | 6 | Trim | todo | ☐ |
 | 7 | Batch & lifecycle | todo | ☐ |

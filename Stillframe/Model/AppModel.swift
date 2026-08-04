@@ -109,18 +109,21 @@ final class AppModel {
     /// Frames the selected video will produce with the current settings.
     /// Reads the same helper the exporter uses, so the estimate can't disagree with the result.
     var plannedFrameCount: Int {
-        guard let metadata = selectedItem?.metadata else { return 0 }
-        return FrameExporter.frameCount(
-            start: 0, end: metadata.seconds, interval: settings.interval)
+        guard let metadata = selectedItem?.metadata, let interval = settings.interval else {
+            return 0
+        }
+        return FrameExporter.frameCount(start: 0, end: metadata.seconds, interval: interval)
     }
 
     var canStartExport: Bool {
-        selectedItem?.metadata != nil && !exportStatus.isRunning
+        selectedItem?.metadata != nil && settings.isIntervalValid && !exportStatus.isRunning
     }
 
     /// Exports the selected video. Milestone 7 turns this into a queue.
     func startExport() {
-        guard let item = selectedItem, let metadata = item.metadata else { return }
+        guard let item = selectedItem, let metadata = item.metadata,
+              let interval = settings.interval
+        else { return }
 
         // Prompt rather than fail when there's nowhere to write yet.
         if outputFolder.folder == nil, outputFolder.choose() == nil { return }
@@ -137,13 +140,13 @@ final class AppModel {
             baseName: item.baseName,
             start: 0,
             end: metadata.seconds,
-            interval: settings.interval,
+            interval: interval,
             format: settings.format,
             quality: settings.jpegQuality,
             destination: destination)
 
         exportStatus = .running(done: 0, total: FrameExporter.frameCount(
-            start: 0, end: metadata.seconds, interval: settings.interval))
+            start: 0, end: metadata.seconds, interval: interval))
 
         exportTask = Task { [weak self] in
             let exporter = FrameExporter()
