@@ -268,8 +268,12 @@ struct SettingsBarView: View {
             Label("Enter an interval", systemImage: "exclamationmark.circle")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-        } else if let metadata = model.selectedItem?.metadata {
-            Text("→ ^[\(model.plannedFrameCount) image](inflect: true) from \(metadata.durationText)")
+        } else if let item = model.selectedItem, item.metadata != nil {
+            // The span the count actually came from: the trimmed range when there is one, not
+            // the clip's full duration. Otherwise a trimmed clip reads as though it produced
+            // that many images from the whole video.
+            let span = item.isTrimmed ? item.trimDuration : item.durationSeconds
+            Text("→ ^[\(model.plannedFrameCount) image](inflect: true) from \(span.durationText)")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()

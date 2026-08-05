@@ -29,17 +29,22 @@ struct VideoMetadata: Sendable, Equatable {
         "\(Int(displaySize.width.rounded()))×\(Int(displaySize.height.rounded()))"
     }
 
-    var durationText: String {
-        let total = seconds
-        guard total.isFinite, total >= 0 else { return "—" }
-        if total < 60 { return String(format: "%.1f s", total) }
-        let minutes = Int(total) / 60
-        let remainder = total - Double(minutes * 60)
-        return String(format: "%d:%04.1f", minutes, remainder)
-    }
+    var durationText: String { seconds.durationText }
 
     var frameRateText: String {
         frameRate > 0 ? String(format: "%.2f fps", frameRate) : "— fps"
+    }
+}
+
+extension Double {
+    /// A span of seconds: `21.7 s`, or `1:05.4` once past a minute.
+    /// Used for both a clip's duration and a trimmed span, so the two always read alike.
+    var durationText: String {
+        guard isFinite, self >= 0 else { return "—" }
+        if self < 60 { return String(format: "%.1f s", self) }
+        let minutes = Int(self) / 60
+        let remainder = self - Double(minutes * 60)
+        return String(format: "%d:%04.1f", minutes, remainder)
     }
 }
 

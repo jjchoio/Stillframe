@@ -1,5 +1,7 @@
 # Stillframe
 
+![Stillframe exporting frames from a video, with a crop rectangle over the preview](docs/stillframe.png)
+
 **Video in, frames out.**
 
 A small macOS app that turns videos into a set of still images. Drop a video in, say "one image
